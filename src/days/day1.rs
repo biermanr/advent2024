@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::cmp::max;
 use std::collections::HashMap;
 
@@ -52,36 +52,37 @@ mod tests {
     use std::io::Write;
     use std::fs::File;
 
-    const TEST_INPUT: &str = "\
-3   4
-4   3
-2   5
-1   3
-3   9
-3   3";
+    fn create_test_file() -> (tempfile::TempDir,File,PathBuf) {
 
-
-    #[test]
-    fn test_part1() {
+        let test_input = "\
+    3   4
+    4   3
+    2   5
+    1   3
+    3   9
+    3   3";
 
         let temp_dir = tempdir().unwrap();
         let f_path = temp_dir.path().join("test_input.txt");
         let mut temp_file = File::create(f_path.clone()).unwrap();
-        write!(temp_file, "{}", TEST_INPUT).unwrap();
+        write!(temp_file, "{}", test_input).unwrap();
 
-        let result = part1(f_path.as_path());
+        // have to return dir and file so they don't go out of scope
+        (temp_dir, temp_file, f_path)
+    }
+
+
+    #[test]
+    fn test_part1() {
+        let (_d,_f,test_path) = create_test_file();
+        let result = part1(&test_path);
         assert_eq!(result, 11);
     }
 
     #[test]
     fn test_part2() {
-
-        let temp_dir = tempdir().unwrap();
-        let f_path = temp_dir.path().join("test_input.txt");
-        let mut temp_file = File::create(f_path.clone()).unwrap();
-        write!(temp_file, "{}", TEST_INPUT).unwrap();
-
-        let result = part2(f_path.as_path());
+        let (_d,_f,test_path) = create_test_file();
+        let result = part2(&test_path);
         assert_eq!(result, 31);
     }
 }
