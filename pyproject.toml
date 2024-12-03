@@ -11,6 +11,15 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
 
+[project.optional-dependencies]
+test = ["pytest"]
+
 
 [tool.maturin]
 features = ["pyo3/extension-module"]
+python-source = "python"
+
+[tool.pytest.ini_options]
+pythonpath = [
+  "python"
+]
