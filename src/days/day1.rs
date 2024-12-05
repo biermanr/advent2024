@@ -62,12 +62,12 @@ mod tests {
 
     fn create_test_file() -> (tempfile::TempDir, File, PathBuf) {
         let test_input = "\
-    3   4
-    4   3
-    2   5
-    1   3
-    3   9
-    3   3";
+3   4
+4   3
+2   5
+1   3
+3   9
+3   3";
 
         let temp_dir = tempdir().unwrap();
         let f_path = temp_dir.path().join("test_input.txt");

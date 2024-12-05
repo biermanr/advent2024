@@ -7,6 +7,12 @@ edition = "2021"
 [lib]
 name = "advent2024"
 crate-type = ["cdylib"]
+doc-test = false
+
+[lints.clippy]
+all = "warn"
+pedantic = "warn"
+nursery = "warn"
 
 [dependencies]
 pyo3 = "0.23.0"

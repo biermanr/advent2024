@@ -67,7 +67,7 @@ pub fn part2(data_path: &Path) -> u32 {
                 break;
             }
             let mut sub_r = r.clone();
-            sub_r.remove(i);
+            sub_r.remove(i); //Change to a filter, this is very expensive!
             valid = validate_report(&sub_r);
         }
 
