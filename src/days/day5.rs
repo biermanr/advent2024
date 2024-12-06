@@ -1,5 +1,5 @@
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::Path;
-use std::collections::{HashMap,HashSet,VecDeque};
 
 fn parse_inputs(text: &str) -> (HashMap<&str, HashSet<&str>>, Vec<Vec<&str>>) {
     let rules_vec: Vec<(&str, &str)> = text
@@ -10,7 +10,7 @@ fn parse_inputs(text: &str) -> (HashMap<&str, HashSet<&str>>, Vec<Vec<&str>>) {
 
     let mut rules: HashMap<&str, HashSet<&str>> = HashMap::new();
 
-    for (prior,latter) in rules_vec {
+    for (prior, latter) in rules_vec {
         rules.entry(prior).or_insert(HashSet::new()).insert(latter);
     }
 
@@ -24,22 +24,32 @@ fn parse_inputs(text: &str) -> (HashMap<&str, HashSet<&str>>, Vec<Vec<&str>>) {
     (rules, updates)
 }
 
-fn validate_updates<'a>(rules: &'a HashMap<&'a str, HashSet<&'a str>>, updates: &'a Vec<Vec<&'a str>>, keep_valid: bool) -> Vec<&'a Vec<&'a str>> {
+fn validate_updates<'a>(
+    rules: &'a HashMap<&'a str, HashSet<&'a str>>,
+    updates: &'a Vec<Vec<&'a str>>,
+    keep_valid: bool,
+) -> Vec<&'a Vec<&'a str>> {
     let mut valid_updates = vec![];
 
     for update in updates {
         let mut valid = true;
-        for i in 0..update.len()-1 {
-            for j in i+1..update.len() {
+        for i in 0..update.len() - 1 {
+            for j in i + 1..update.len() {
                 let prior_page = &update[i];
                 let latter_page = &update[j];
                 if let Some(subsequent_pages) = rules.get(latter_page) {
-                    if subsequent_pages.contains(prior_page) { valid = false; }
+                    if subsequent_pages.contains(prior_page) {
+                        valid = false;
+                    }
                 }
             }
         }
-        if valid && keep_valid { valid_updates.push(update); }
-        if !valid && !keep_valid { valid_updates.push(update); }
+        if valid && keep_valid {
+            valid_updates.push(update);
+        }
+        if !valid && !keep_valid {
+            valid_updates.push(update);
+        }
     }
 
     valid_updates
@@ -52,7 +62,10 @@ pub fn part1(data_path: &Path) -> u32 {
     let valid_updates = validate_updates(&rules, &updates, true);
 
     // sum of middle pages of valid updates
-    valid_updates.iter().map(|u| u[u.len()/2].parse::<u32>().unwrap()).sum()
+    valid_updates
+        .iter()
+        .map(|u| u[u.len() / 2].parse::<u32>().unwrap())
+        .sum()
 }
 
 pub fn part2(data_path: &Path) -> u32 {
@@ -61,19 +74,19 @@ pub fn part2(data_path: &Path) -> u32 {
     let (rules, updates) = parse_inputs(&text);
     let invalid_updates = validate_updates(&rules, &updates, false);
 
-    // order the updates 
+    // order the updates
     let mut ordered_updates: Vec<Vec<&str>> = vec![];
 
     for update in invalid_updates {
-        let mut unordered_update:VecDeque<&str> = update.clone().into();
+        let mut unordered_update: VecDeque<&str> = update.clone().into();
         let mut ordered_update: Vec<&str> = vec![];
         while unordered_update.len() > 0 {
             let mut valid = true;
             let prior_page = unordered_update.pop_front().unwrap();
             for latter_page in &unordered_update {
                 if let Some(subsequent_pages) = rules.get(latter_page) {
-                    if subsequent_pages.contains(prior_page) { 
-                        valid = false; 
+                    if subsequent_pages.contains(prior_page) {
+                        valid = false;
                         break;
                     }
                 }
@@ -84,14 +97,16 @@ pub fn part2(data_path: &Path) -> u32 {
             } else {
                 unordered_update.push_back(prior_page);
             }
-
         }
 
         ordered_updates.push(ordered_update);
     }
 
     // sum of middle pages of valid updates
-    ordered_updates.iter().map(|u| u[u.len()/2].parse::<u32>().unwrap()).sum()
+    ordered_updates
+        .iter()
+        .map(|u| u[u.len() / 2].parse::<u32>().unwrap())
+        .sum()
 }
 
 #[cfg(test)]
@@ -104,7 +119,6 @@ mod tests {
     use tempfile::tempdir;
 
     fn create_test_file() -> (tempfile::TempDir, File, PathBuf) {
-
         let test_input = "\
 47|53
 97|13
