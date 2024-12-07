@@ -26,7 +26,6 @@ fn next_pos(grid: &Vec<Vec<char>>, guard_pos: &GuardPosition) -> Option<(usize, 
     //check if taking a step leaves the area
     if curr_x + dx < 0 || curr_y + dy < 0 {
         return None;
-
     }
 
     let new_x: usize = (curr_x + dx).try_into().unwrap();
@@ -35,7 +34,6 @@ fn next_pos(grid: &Vec<Vec<char>>, guard_pos: &GuardPosition) -> Option<(usize, 
     if new_y >= grid.len() || new_x >= grid[0].len() {
         return None;
     }
-
 
     //otherwise take a step if unblocked
     if grid[new_y][new_x] == '#' {
@@ -46,9 +44,7 @@ fn next_pos(grid: &Vec<Vec<char>>, guard_pos: &GuardPosition) -> Option<(usize, 
 }
 
 fn next_guard_position(grid: &Vec<Vec<char>>, guard_pos: &GuardPosition) -> Option<GuardPosition> {
-
     let (new_x, new_y) = next_pos(&grid, &guard_pos)?;
-
 
     let new_guard_pos = if guard_pos.x == new_x && guard_pos.y == new_y {
         // If the next_pos is the same as the previous pos, then need to rotate
@@ -76,7 +72,6 @@ fn next_guard_position(grid: &Vec<Vec<char>>, guard_pos: &GuardPosition) -> Opti
 
     Some(new_guard_pos)
 }
-
 
 pub fn part1(data_path: &Path) -> u32 {
     let text = std::fs::read_to_string(data_path).unwrap();
@@ -108,7 +103,6 @@ pub fn part1(data_path: &Path) -> u32 {
 
     let mut guard_positions: HashSet<GuardPosition> = HashSet::new();
     let mut guard_squares: HashSet<(usize, usize)> = HashSet::new();
-
 
     while !guard_positions.contains(&guard) {
         guard_positions.insert(guard.clone());
@@ -148,7 +142,9 @@ pub fn part2(data_path: &Path) -> u32 {
     //count how many result in loops
     for y in 0..grid.len() {
         for x in 0..grid[y].len() {
-            if grid[y][x] != '.' { continue };
+            if grid[y][x] != '.' {
+                continue;
+            };
 
             // pretend there's an obstacle here
             grid[y][x] = '#';
@@ -173,7 +169,9 @@ pub fn part2(data_path: &Path) -> u32 {
                 };
             }
 
-            if in_a_loop { num_loops += 1; }
+            if in_a_loop {
+                num_loops += 1;
+            }
 
             // remove the added obstacle
             grid[y][x] = '.';
