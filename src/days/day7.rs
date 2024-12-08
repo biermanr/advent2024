@@ -1,4 +1,3 @@
-// TODO fix lots of code duplication
 use std::collections::VecDeque;
 use std::path::Path;
 
@@ -16,14 +15,16 @@ fn valid_equation(target: usize, mut ns: VecDeque<usize>, test: usize, is_part2:
             // Ugly, but on the first iteration should have test = 1 for mult
             let test_mult_branch = if test == 0 { 1 } else { test };
 
-            // If the sum of recur calls is greater than 0, at least one must be ok
-            let mut any_valid = valid_equation(target, ns.clone(), test + n, is_part2);
-            any_valid |= valid_equation(target, ns.clone(), test_mult_branch * n, is_part2);
-
-            if is_part2 {
-                any_valid |= valid_equation(target, ns.clone(), concat_nums(test, n), is_part2);
+            if valid_equation(target, ns.clone(), test + n, is_part2) {
+                true
+            } else if valid_equation(target, ns.clone(), test_mult_branch * n, is_part2) {
+                true
+            } else if is_part2 && valid_equation(target, ns.clone(), concat_nums(test, n), is_part2)
+            {
+                true
+            } else {
+                false
             }
-            any_valid
         }
     } else {
         // Base case where there are no more numbers
