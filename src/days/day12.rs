@@ -1,11 +1,6 @@
 use std::collections::HashSet;
 use std::path::Path;
 
-//struct Region {
-//    plant: char,
-//    plots: HashSet<(usize, usize)>,
-//}
-
 fn next_steps(grid: &Vec<Vec<char>>, pos: (usize, usize)) -> Vec<(usize, usize)> {
     let (x, y) = pos;
     let plant = grid[y][x];
@@ -49,10 +44,10 @@ fn discover_region(grid: &mut Vec<Vec<char>>, pos: (usize, usize)) -> HashSet<(u
     visited
 }
 
-fn score_region(plots: HashSet<(usize, usize)>) -> u32 {
-    let mut total_fences = 0;
+fn count_fence_segments(plots: &HashSet<(usize, usize)>) -> u32 {
+    let mut total_fence_segments = 0;
 
-    for &(x, y) in &plots {
+    for &(x, y) in plots {
         let mut shared_fences = 0;
 
         if x >= 1 && plots.contains(&(x - 1, y)) {
@@ -68,13 +63,13 @@ fn score_region(plots: HashSet<(usize, usize)>) -> u32 {
             shared_fences += 1;
         }
 
-        total_fences += 4 - shared_fences;
+        total_fence_segments += 4 - shared_fences;
     }
 
-    (total_fences * plots.len()).try_into().unwrap()
+    total_fence_segments
 }
 
-fn score_region_part2(plots: HashSet<(usize, usize)>, width: usize, height: usize) -> u32 {
+fn count_fences(plots: HashSet<(usize, usize)>, width: usize, height: usize) -> u32 {
     // a fence segment is either horizontal or vertical
     // For example, the 4 fences below could be described by the below
     //
@@ -87,27 +82,28 @@ fn score_region_part2(plots: HashSet<(usize, usize)>, width: usize, height: usiz
     // would be (1,1,V), (2,1,V), (1,1,H), (1,2,H)
     //
     // can keep the vertical and horizontal fences separate
+    // keep track of which plot each fence belongs to to try and solve the inner-fence issue
 
-    let mut vert_fences: Vec<(usize, usize)> = Vec::new();
-    let mut horz_fences: Vec<(usize, usize)> = Vec::new();
+    let mut vert_fences: Vec<(usize, usize, (usize,usize))> = Vec::new();
+    let mut horz_fences: Vec<(usize, usize, (usize,usize))> = Vec::new();
 
     for &(x, y) in &plots {
         // if at the left-side of the map or the plot to the left is a diff plant
         // then there will be a LEFT horizontal fence segment, similar for UP fence
         if x == 0 || !plots.contains(&(x - 1, y)) {
-            vert_fences.push((x, y));
+            vert_fences.push((x, y,(x,y)));
         }
 
         if y == 0 || !plots.contains(&(x, y - 1)) {
-            horz_fences.push((x, y));
+            horz_fences.push((x, y,(x,y)));
         }
 
         // check RIGHT and DOWN
         if x == width - 1 || !plots.contains(&(x + 1, y)) {
-            vert_fences.push((x + 1, y));
+            vert_fences.push((x + 1, y,(x,y)));
         }
         if y == height - 1 || !plots.contains(&(x, y + 1)) {
-            horz_fences.push((x, y + 1));
+            horz_fences.push((x, y + 1,(x,y)));
         }
     }
 
@@ -115,28 +111,31 @@ fn score_region_part2(plots: HashSet<(usize, usize)>, width: usize, height: usiz
     vert_fences.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.cmp(&b.1)));
 
     let mut num_vert_fences = 1;
-    let (mut previous_x, mut previous_y) = vert_fences[0]; //take the first fence
-    for (x, y) in &vert_fences[1..] {
-        // not part of the same fence
-        if *x != previous_x || *y != previous_y + 1 {
+    let (mut pfx, mut pfy, _) = vert_fences[0]; //take the first fence
+    for (fx, fy, (x,y)) in &vert_fences[1..] {
+        // checking if the previous fence was the same x and one y above
+        // and making sure that the plots are connected for the internal fence issue
+        let connected = *fx == pfx && *fy == pfy+1 && *x > 0 && plots.contains(&(*x-1, *y));
+        if !connected {
             num_vert_fences += 1;
         }
-        previous_x = *x;
-        previous_y = *y;
+        pfx = *x;
+        pfy = *y;
     }
 
     // sort the fence segments and try to combine them
     horz_fences.sort_by(|a, b| a.1.cmp(&b.1).then(a.0.cmp(&b.0)));
 
     let mut num_horz_fences = 1;
-    let (mut previous_x, mut previous_y) = horz_fences[0]; //take the first fence
-    for (x, y) in &horz_fences[1..] {
+    let (mut pfx, mut pfy, _) = horz_fences[0]; //take the first fence
+    for (fx, fy, (x,y)) in &horz_fences[1..] {
         // not part of the same fence
-        if *y != previous_y || *x != previous_x + 1 {
+        let connected = *fx == pfx+1 && *fy == pfy && *y > 0 && plots.contains(&(*x, *y-1));
+        if !connected {
             num_horz_fences += 1;
         }
-        previous_x = *x;
-        previous_y = *y;
+        pfx = *x;
+        pfy = *y;
     }
 
     num_vert_fences + num_horz_fences
@@ -158,7 +157,8 @@ pub fn part1(data_path: &Path) -> u32 {
             }
 
             let plots = discover_region(&mut grid, (x, y));
-            score += score_region(plots);
+            let fence_segments = count_fence_segments(&plots);
+            score += fence_segments*(plots.len() as u32)
         }
     }
 
@@ -184,7 +184,7 @@ pub fn part2(data_path: &Path) -> u32 {
 
             let plots = discover_region(&mut grid, (x, y));
             let num_plots = plots.len() as u32;
-            let num_fences = score_region_part2(plots, width, height);
+            let num_fences = count_fences(plots, width, height);
             score += num_fences * num_plots;
         }
     }
