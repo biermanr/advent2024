@@ -99,7 +99,7 @@ pub fn part2(data_path: &Path) -> u32 {
     // Get all the trailheads
     let trailheads = get_trailheads(&grid);
 
-    // ???
+    // Score the number of distinct hikes
     let scores: Vec<u32> = trailheads
         .iter()
         .map(|th| num_distinct_hikes(&grid, *th))
