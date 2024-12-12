@@ -6,98 +6,190 @@ use std::path::Path;
 //    plots: HashSet<(usize, usize)>,
 //}
 
-fn walk_region(mut grid: Vec<Vec<char>>, pos: (usize, usize)) -> Vec<((usize, usize), usize)> {
+fn next_steps(grid: &Vec<Vec<char>>, pos: (usize, usize)) -> Vec<(usize, usize)> {
     let (x, y) = pos;
     let plant = grid[y][x];
-
-    let mut num_fences = 4;
-
-    //Mark this position as visited and add it to the list
-    //assuming there is no plant type named '.'
-    grid[y][x] = '.';
     let mut valid_steps = Vec::new();
 
-    //Check all four directions for the same plant
-    if x >= 1 {
-        if grid[y][x - 1] == plant {
-            valid_steps.push((x - 1, y));
-            num_fences -= 1;
-        }
-        if grid[y][x - 1] == '.' {
-            num_fences -= 1;
-        }
+    //try stepping in all four cardinal directions to see if the plot is of the same plant type
+    if x >= 1 && grid[y][x - 1] == plant {
+        valid_steps.push((x - 1, y))
     }
-    if x + 1 <= grid[0].len() - 1 {
-        if grid[y][x + 1] == plant {
-            valid_steps.push((x + 1, y));
-            num_fences -= 1;
-        }
-        if grid[y][x + 1] == '.' {
-            num_fences -= 1;
-        }
+    if x + 1 <= grid[0].len() - 1 && grid[y][x + 1] == plant {
+        valid_steps.push((x + 1, y))
     }
-    if y >= 1 {
-        if grid[y - 1][x] == plant {
-            valid_steps.push((x, y - 1));
-            num_fences -= 1;
-        }
-        if grid[y - 1][x] == '.' {
-            num_fences -= 1;
-        }
+    if y >= 1 && grid[y - 1][x] == plant {
+        valid_steps.push((x, y - 1))
     }
-    if y + 1 <= grid.len() - 1 {
-        if grid[y + 1][x] == plant {
-            valid_steps.push((x, y + 1));
-            num_fences -= 1;
+    if y + 1 <= grid.len() - 1 && grid[y + 1][x] == plant {
+        valid_steps.push((x, y + 1))
+    }
+
+    valid_steps
+}
+
+fn discover_region(grid: &mut Vec<Vec<char>>, pos: (usize, usize)) -> HashSet<(usize, usize)> {
+    let mut visited = HashSet::new();
+    let mut to_visit = vec![pos];
+
+    while let Some((x, y)) = to_visit.pop() {
+        // This plot was already visited, skip
+        if grid[y][x] == '.' {
+            continue;
         }
-        if grid[y + 1][x] == '.' {
-            num_fences -= 1;
+
+        // Add the next steps to the stack
+        to_visit.extend(next_steps(&grid, (x, y)));
+
+        // Mark this plot as visited
+        visited.insert((x, y));
+        grid[y][x] = '.';
+    }
+
+    visited
+}
+
+fn score_region(plots: HashSet<(usize, usize)>) -> u32 {
+    let mut total_fences = 0;
+
+    for &(x, y) in &plots {
+        let mut shared_fences = 0;
+
+        if x >= 1 && plots.contains(&(x - 1, y)) {
+            shared_fences += 1;
+        }
+        if y >= 1 && plots.contains(&(x, y - 1)) {
+            shared_fences += 1;
+        }
+        if plots.contains(&(x + 1, y)) {
+            shared_fences += 1;
+        }
+        if plots.contains(&(x, y + 1)) {
+            shared_fences += 1;
+        }
+
+        total_fences += 4 - shared_fences;
+    }
+
+    (total_fences * plots.len()).try_into().unwrap()
+}
+
+fn score_region_part2(plots: HashSet<(usize, usize)>, width: usize, height: usize) -> u32 {
+    // a fence segment is either horizontal or vertical
+    // For example, the 4 fences below could be described by the below
+    //
+    // B B B
+    //  +-+
+    // B|A|B
+    //  +-+
+    // B B B
+    //
+    // would be (1,1,V), (2,1,V), (1,1,H), (1,2,H)
+    //
+    // can keep the vertical and horizontal fences separate
+
+    let mut vert_fences: Vec<(usize, usize)> = Vec::new();
+    let mut horz_fences: Vec<(usize, usize)> = Vec::new();
+
+    for &(x, y) in &plots {
+        // if at the left-side of the map or the plot to the left is a diff plant
+        // then there will be a LEFT horizontal fence segment, similar for UP fence
+        if x == 0 || !plots.contains(&(x - 1, y)) {
+            vert_fences.push((x, y));
+        }
+
+        if y == 0 || !plots.contains(&(x, y - 1)) {
+            horz_fences.push((x, y));
+        }
+
+        // check RIGHT and DOWN
+        if x == width - 1 || !plots.contains(&(x + 1, y)) {
+            vert_fences.push((x + 1, y));
+        }
+        if y == height - 1 || !plots.contains(&(x, y + 1)) {
+            horz_fences.push((x, y + 1));
         }
     }
 
-    let mut future_fences: Vec<((usize, usize), usize)> = valid_steps
-        .iter()
-        .flat_map(|s| walk_region(grid.clone(), *s))
-        .collect();
+    // sort the fence segments and try to combine them
+    vert_fences.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.cmp(&b.1)));
 
-    future_fences.push((pos, num_fences));
-    future_fences
+    let mut num_vert_fences = 1;
+    let (mut previous_x, mut previous_y) = vert_fences[0]; //take the first fence
+    for (x, y) in &vert_fences[1..] {
+        // not part of the same fence
+        if *x != previous_x || *y != previous_y + 1 {
+            num_vert_fences += 1;
+        }
+        previous_x = *x;
+        previous_y = *y;
+    }
+
+    // sort the fence segments and try to combine them
+    horz_fences.sort_by(|a, b| a.1.cmp(&b.1).then(a.0.cmp(&b.0)));
+
+    let mut num_horz_fences = 1;
+    let (mut previous_x, mut previous_y) = horz_fences[0]; //take the first fence
+    for (x, y) in &horz_fences[1..] {
+        // not part of the same fence
+        if *y != previous_y || *x != previous_x + 1 {
+            num_horz_fences += 1;
+        }
+        previous_x = *x;
+        previous_y = *y;
+    }
+
+    num_vert_fences + num_horz_fences
 }
 
 pub fn part1(data_path: &Path) -> u32 {
     let text = std::fs::read_to_string(data_path).unwrap();
 
-    // Read in the antenna grid
-    let grid: Vec<Vec<char>> = text.lines().map(|l| l.chars().collect()).collect();
+    let mut grid: Vec<Vec<char>> = text.lines().map(|l| l.chars().collect()).collect();
 
-    let mut visited_plots: HashSet<(usize, usize)> = HashSet::new();
-    let mut total_score: usize = 0;
+    let mut score = 0;
 
+    // Look through the whole grid to find the regions and score themk
     for y in 0..grid.len() {
         for x in 0..grid[y].len() {
-            if visited_plots.contains(&(x, y)) {
+            // Plot already part of region, skip
+            if grid[y][x] == '.' {
                 continue;
             }
 
-            let mut region = walk_region(grid.clone(), (x, y));
-
-            // deduplicate region because my walking is bad
-            region.sort();
-            region.dedup();
-
-            let score = region.iter().map(|(_, f)| f).sum::<usize>() * region.len();
-            total_score += score;
-
-            //println!("WORKING ON PLOT AT {:?}, type {:?}, with score {:?} with len {:?}",(x,y), grid[y][x], score, region.len());
-            //println!("{:?}",region);
-
-            let region_plots: HashSet<(usize, usize)> =
-                region.iter().map(|((x, y), _)| (*x, *y)).collect();
-            visited_plots.extend(region_plots);
+            let plots = discover_region(&mut grid, (x, y));
+            score += score_region(plots);
         }
     }
 
-    total_score.try_into().unwrap()
+    score
+}
+
+pub fn part2(data_path: &Path) -> u32 {
+    let text = std::fs::read_to_string(data_path).unwrap();
+
+    let mut grid: Vec<Vec<char>> = text.lines().map(|l| l.chars().collect()).collect();
+    let height = grid.len();
+    let width = grid[0].len();
+
+    let mut score = 0;
+
+    // Look through the whole grid to find the regions and score them
+    for y in 0..grid.len() {
+        for x in 0..grid[y].len() {
+            // Plot already part of region, skip
+            if grid[y][x] == '.' {
+                continue;
+            }
+
+            let plots = discover_region(&mut grid, (x, y));
+            let num_plots = plots.len() as u32;
+            let num_fences = score_region_part2(plots, width, height);
+            score += num_fences * num_plots;
+        }
+    }
+
+    score
 }
 
 #[cfg(test)]
@@ -129,5 +221,57 @@ EEEC\n";
         let (_d, _f, test_path) = create_test_file(&test_input);
         let result = part1(&test_path);
         assert_eq!(result, 140);
+    }
+
+    #[test]
+    fn test_part2_example1() {
+        let test_input = "\
+AAAA
+BBCD
+BBCC
+EEEC\n";
+        let (_d, _f, test_path) = create_test_file(&test_input);
+        let result = part2(&test_path);
+        assert_eq!(result, 80);
+    }
+
+    #[test]
+    fn test_part2_example2() {
+        let test_input = "\
+EEEEE
+EXXXX
+EEEEE
+EXXXX
+EEEEE\n";
+        let (_d, _f, test_path) = create_test_file(&test_input);
+        let result = part2(&test_path);
+        assert_eq!(result, 236);
+    }
+
+    #[test]
+    fn test_part2_example3() {
+        let test_input = "\
+OOOOO
+OXOXO
+OOOOO
+OXOXO
+OOOOO\n";
+        let (_d, _f, test_path) = create_test_file(&test_input);
+        let result = part2(&test_path);
+        assert_eq!(result, 436);
+    }
+
+    #[test]
+    fn test_part2_example4() {
+        let test_input = "\
+AAAAAA
+AAABBA
+AAABBA
+ABBAAA
+ABBAAA
+AAAAAA\n";
+        let (_d, _f, test_path) = create_test_file(&test_input);
+        let result = part2(&test_path);
+        assert_eq!(result, 368);
     }
 }
