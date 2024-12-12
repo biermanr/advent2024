@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::path::Path;
 
 //struct Region {
@@ -5,9 +6,11 @@ use std::path::Path;
 //    plots: HashSet<(usize, usize)>,
 //}
 
-fn walk_region(mut grid: Vec<Vec<char>>, pos: (usize, usize)) -> Vec<(usize, usize)> {
+fn walk_region(mut grid: Vec<Vec<char>>, pos: (usize, usize)) -> Vec<((usize, usize), usize)> {
     let (x, y) = pos;
     let plant = grid[y][x];
+
+    let mut num_fences = 4;
 
     //Mark this position as visited and add it to the list
     //assuming there is no plant type named '.'
@@ -15,25 +18,50 @@ fn walk_region(mut grid: Vec<Vec<char>>, pos: (usize, usize)) -> Vec<(usize, usi
     let mut valid_steps = Vec::new();
 
     //Check all four directions for the same plant
-    if x >= 1 && grid[y][x - 1] == plant {
-        valid_steps.push((x - 1, y))
+    if x >= 1 {
+        if grid[y][x - 1] == plant {
+            valid_steps.push((x - 1, y));
+            num_fences -= 1;
+        }
+        if grid[y][x - 1] == '.' {
+            num_fences -= 1;
+        }
     }
-    if x + 1 <= grid[0].len() - 1 && grid[y][x + 1] == plant {
-        valid_steps.push((x + 1, y))
+    if x + 1 <= grid[0].len() - 1 {
+        if grid[y][x + 1] == plant {
+            valid_steps.push((x + 1, y));
+            num_fences -= 1;
+        }
+        if grid[y][x + 1] == '.' {
+            num_fences -= 1;
+        }
     }
-    if y >= 1 && grid[y - 1][x] == plant {
-        valid_steps.push((x, y - 1))
+    if y >= 1 {
+        if grid[y - 1][x] == plant {
+            valid_steps.push((x, y - 1));
+            num_fences -= 1;
+        }
+        if grid[y - 1][x] == '.' {
+            num_fences -= 1;
+        }
     }
-    if y + 1 <= grid.len() - 1 && grid[y + 1][x] == plant {
-        valid_steps.push((x, y + 1))
+    if y + 1 <= grid.len() - 1 {
+        if grid[y + 1][x] == plant {
+            valid_steps.push((x, y + 1));
+            num_fences -= 1;
+        }
+        if grid[y + 1][x] == '.' {
+            num_fences -= 1;
+        }
     }
 
-    let mut future_steps: Vec<(usize, usize)> = valid_steps
+    let mut future_fences: Vec<((usize, usize), usize)> = valid_steps
         .iter()
         .flat_map(|s| walk_region(grid.clone(), *s))
         .collect();
-    future_steps.push((x, y));
-    future_steps
+
+    future_fences.push((pos, num_fences));
+    future_fences
 }
 
 pub fn part1(data_path: &Path) -> u32 {
@@ -42,9 +70,34 @@ pub fn part1(data_path: &Path) -> u32 {
     // Read in the antenna grid
     let grid: Vec<Vec<char>> = text.lines().map(|l| l.chars().collect()).collect();
 
-    let r = walk_region(grid, (2, 1));
-    println!("{:?}", r);
-    0
+    let mut visited_plots: HashSet<(usize, usize)> = HashSet::new();
+    let mut total_score: usize = 0;
+
+    for y in 0..grid.len() {
+        for x in 0..grid[y].len() {
+            if visited_plots.contains(&(x, y)) {
+                continue;
+            }
+
+            let mut region = walk_region(grid.clone(), (x, y));
+
+            // deduplicate region because my walking is bad
+            region.sort();
+            region.dedup();
+
+            let score = region.iter().map(|(_, f)| f).sum::<usize>() * region.len();
+            total_score += score;
+
+            //println!("WORKING ON PLOT AT {:?}, type {:?}, with score {:?} with len {:?}",(x,y), grid[y][x], score, region.len());
+            //println!("{:?}",region);
+
+            let region_plots: HashSet<(usize, usize)> =
+                region.iter().map(|((x, y), _)| (*x, *y)).collect();
+            visited_plots.extend(region_plots);
+        }
+    }
+
+    total_score.try_into().unwrap()
 }
 
 #[cfg(test)]
