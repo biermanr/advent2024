@@ -51,55 +51,93 @@ expensive option.
 I'm not sure if this is really dynamic programming or not.
 Feels like it since it's a 2D matrix that we're filling in
 */
+use regex::Regex;
 use std::path::Path;
 
+const MAX_PRESSES: usize = 100;
 
+#[derive(Debug)]
 struct Game {
-    xa: u32,
-    ya: u32,
-    xb: u32,
-    yb: u32,
-    xp: u32,
-    yp: u32,
-    moves: [[(u32,u32); 100]; 100],
+    a_button: (u32, u32),
+    b_button: (u32, u32),
+    prize: (u32, u32),
+    moves: [[(u32, u32); MAX_PRESSES + 1]; MAX_PRESSES + 1],
 }
 
 impl Game {
-    fn new(a_button_line: &str, b_button_line: &str, prize_line: &str) -> Game {
+    fn new(a_button: (u32, u32), b_button: (u32, u32), prize: (u32, u32)) -> Game {
         Game {
-            xa: 0,
-            ya: 0,
-            xb: 0,
-            yb: 0,
-            xp: 0,
-            yp: 0,
-            moves: [[(0,0); 100]; 100],
+            a_button: a_button,
+            b_button: b_button,
+            prize: prize,
+            moves: [[(0, 0); MAX_PRESSES + 1]; MAX_PRESSES + 1],
         }
     }
+
+    fn solve(&mut self) -> Option<(usize, usize)> {
+        let mut presses = vec![(0, 0)];
+        let mut visited = [[false; MAX_PRESSES + 1]; MAX_PRESSES + 1];
+
+        while let Some((a, b)) = presses.pop() {
+            // Found the prize, return the num of A and B presses
+            if self.moves[a][b] == self.prize {
+                return Some((a, b));
+            }
+
+            visited[a][b] = true;
+
+            let (x, y) = self.moves[a][b];
+
+            // Calculate the position if using one more B press
+            if a < MAX_PRESSES {
+                let new_x = x + self.a_button.0;
+                let new_y = y + self.a_button.1;
+                let not_too_big = new_x <= self.prize.0 && new_y <= self.prize.1;
+
+                if not_too_big && !visited[a + 1][b] {
+                    self.moves[a + 1][b] = (new_x, new_y);
+                    presses.push((a + 1, b));
+                }
+            }
+
+            // Calculate the position if using one more B press
+            // NOTE, doing this second so it's at the top of the stack
+            //       because b presses are cheaper
+            if b < MAX_PRESSES {
+                let new_x = x + self.b_button.0;
+                let new_y = y + self.b_button.1;
+                let not_too_big = new_x <= self.prize.0 && new_y <= self.prize.1;
+
+                if not_too_big && !visited[a][b + 1] {
+                    self.moves[a][b + 1] = (new_x, new_y);
+                    presses.push((a, b + 1));
+                }
+            }
+        }
+        None
+    }
+}
+
+fn parse_xy(s: &str) -> (u32, u32) {
+    let xy_re = Regex::new(r"X.(\d+).*Y.(\d+)").unwrap();
+    let m = &xy_re.captures_iter(s).next().unwrap();
+    let x = m[1].parse().unwrap();
+    let y = m[2].parse().unwrap();
+    (x, y)
 }
 
 pub fn part1(data_path: &Path) -> u32 {
-
-    let text = std::fs::read_to_string(data_path).unwrap();
-    for (i,line) in text.lines().enumerate() {
-        match i%4 {
-            0 => println!("Button A: {:?}",line),
-            1 => println!("Button B: {:?}",line),
-            2 => println!("Prize: {:?}",line),
-            3 => println!("EMPTY: {:?}",line),
-            _ => unreachable!(),
-        }
-    }
-
     let text = std::fs::read_to_string(data_path).unwrap();
     let lines: Vec<&str> = text.lines().collect();
-    let q: Vec<_> = lines.chunks(4).map(|s| (s[0],s[1],s[2])).collect();
-    println!("{:?}",q);
+    let mut games: Vec<_> = lines
+        .chunks(4)
+        .map(|s| Game::new(parse_xy(s[0]), parse_xy(s[1]), parse_xy(s[2])))
+        .collect();
 
-    let g = Game::new("woo","hoo","boo");
-    0
+    let button_presses: Vec<_> = games.iter_mut().filter_map(|g| g.solve()).collect();
+    let cost: usize = button_presses.iter().map(|(a, b)| a * 3 + b).sum();
+    cost.try_into().unwrap()
 }
-
 
 #[cfg(test)]
 mod tests {
