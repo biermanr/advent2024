@@ -79,83 +79,44 @@ fn get_fence_segments(
     (vert_fence_segments, horz_fence_segments)
 }
 
-fn count_vert_fences(fence_segments: &Vec<((i32, i32), (i32, i32))>) -> usize {
-    // A fence segment is defined by the two plots that it separates
-    // like ((x1,y1),(x2,y2))
-    // where the first (x1,y1) position is INSIDE and the (x2,y2) is OUTSIDE the region
-    // for example for the tricky example, the vertical fence-segements in the middle are:
-    //     AAAAAA
-    //     AAABBA
-    //     AAABBA
-    //     ABBAAA
-    //     ABBAAA
-    //     AAAAAA
-    //
-    //  ((3,3),(2,3))
-    //  ((3,4),(2,4))
-    //  ((2,1),(3,1))
-    //  ((2,2),(3,2))
-    //
-    // We want to sort vertical fence segments by x2, y2, x1, y1 like above
-    // then we can test if the same fence continues if the prev x is the same, but y is one larger
-    // for both the 1's and 2's
-    // otherwise we must be starting a new fence
-    //
-    // we include (x2,y2) to distinguish situations like this:
-    //
-    //      ABA
-    //      ABA
-    //
-    // where we'd have four vertical wall segments for B:
-    //  ((1,0),(0,0))
-    //  ((1,1),(0,1))
-    //  ((1,0),(2,0))
-    //  ((1,1),(2,1))
-    //
-    // and we would create two vertical walls
-    //
-    let mut num_fences = 1;
-    let ((mut p_x1, mut p_y1), (mut p_x2, mut p_y2)) = fence_segments[0];
+fn count_fences(fence_segments: &mut Vec<((i32, i32), (i32, i32))>, vertical: bool) -> usize {
+    let mut num_fences = 0;
+    while let Some(start_segment) = fence_segments.pop() {
+        num_fences += 1;
 
-    for ((x1, y1), (x2, y2)) in &fence_segments[1..] {
-        let fence_continues = *x1 == p_x1 && *y1 == p_y1 + 1 && *x2 == p_x2 && *y2 == p_y2 + 1;
-        if !fence_continues {
-            num_fences += 1;
+        // Try and consume all the connected fence pieces to the start_segment
+        // slow with how I'm using remove, could likely make "fence numbers" instead
+        let mut segments_to_check = vec![start_segment];
+        while let Some(((x1, y1), (x2, y2))) = segments_to_check.pop() {
+            if vertical {
+                let up_segment = ((x1, y1 - 1), (x2, y2 - 1));
+                let dw_segment = ((x1, y1 + 1), (x2, y2 + 1));
+
+                if let Some(ind) = fence_segments.iter().position(|&x| x == up_segment) {
+                    segments_to_check.push(up_segment);
+                    fence_segments.remove(ind);
+                }
+
+                if let Some(ind) = fence_segments.iter().position(|&x| x == dw_segment) {
+                    segments_to_check.push(dw_segment);
+                    fence_segments.remove(ind);
+                }
+            } else {
+                let lt_segment = ((x1 - 1, y1), (x2 - 1, y2));
+                let rt_segment = ((x1 + 1, y1), (x2 + 1, y2));
+
+                if let Some(ind) = fence_segments.iter().position(|&x| x == lt_segment) {
+                    segments_to_check.push(lt_segment);
+                    fence_segments.remove(ind);
+                }
+
+                if let Some(ind) = fence_segments.iter().position(|&x| x == rt_segment) {
+                    segments_to_check.push(rt_segment);
+                    fence_segments.remove(ind);
+                }
+            }
         }
-        p_x1 = *x1;
-        p_y1 = *y1;
-        p_x2 = *x2;
-        p_y2 = *y2;
     }
-
-    num_fences
-}
-
-fn count_horz_fences(fence_segments: &Vec<((i32, i32), (i32, i32))>) -> usize {
-    // what order do we want the fence segments sorted for detecting horizontal connected fences?
-    // let's take this example for the E region which has 6 horizontal fences
-    //
-    //   EEEEE
-    //   EXXXX
-    //   EEEEE
-    //   EXXXX
-    //   EEEEE
-    //
-    // To join the top fence, we'd want the segments sorted first by smallest y1 value
-    let mut num_fences = 1;
-    let ((mut p_x1, mut p_y1), (mut p_x2, mut p_y2)) = fence_segments[0];
-
-    for ((x1, y1), (x2, y2)) in &fence_segments[1..] {
-        let fence_continues = *x1 == p_x1 + 1 && *y1 == p_y1 && *x2 == p_x2 + 1 && *y2 == p_y2;
-        if !fence_continues {
-            num_fences += 1;
-        }
-        p_x1 = *x1;
-        p_y1 = *y1;
-        p_x2 = *x2;
-        p_y2 = *y2;
-    }
-
     num_fences
 }
 
@@ -202,30 +163,8 @@ pub fn part2(data_path: &Path) -> u32 {
             let plots = discover_region(&mut grid, (x, y));
             let (mut vert_fence_segments, mut horz_fence_segments) = get_fence_segments(&plots);
 
-            // Sort the vertical fences by x2,y2,x1,y1 order
-            vert_fence_segments.sort_by(|a, b| {
-                a.1 .0
-                    .cmp(&b.1 .0)
-                    .then(a.1 .1.cmp(&b.1 .1))
-                    .then(a.0 .0.cmp(&b.0 .0))
-                    .then(a.0 .1.cmp(&b.0 .1))
-            });
-
-            // Sort the horizontal fences by ???
-            horz_fence_segments.sort_by(|a, b| {
-                a.1 .1
-                    .cmp(&b.1 .1)
-                    .then(a.1 .0.cmp(&b.1 .0))
-                    .then(a.0 .1.cmp(&b.0 .1))
-                    .then(a.0 .0.cmp(&b.0 .0))
-            });
-
-            let num_vert_fences = count_vert_fences(&vert_fence_segments);
-            let num_horz_fences = count_horz_fences(&horz_fence_segments);
-            println!("VERT Fence segments {:?}", vert_fence_segments);
-            println!("HORZ Fence segments {:?}", horz_fence_segments);
-            println!("NUM VERT {:?}", num_vert_fences);
-            println!("NUM HORZ {:?}", num_horz_fences);
+            let num_vert_fences = count_fences(&mut vert_fence_segments, true);
+            let num_horz_fences = count_fences(&mut horz_fence_segments, false);
             score += (num_vert_fences + num_horz_fences) * plots.len();
         }
     }
