@@ -67,7 +67,7 @@ fn make_move(grid: &mut Vec<Vec<char>>, pos: (i32, i32), m: char) -> (i32, i32) 
 
     match grid[py][px] {
         '.' => {
-            // shift boxes and robot
+            // shift boxes and robot, and return new position
             grid[py][px] = grid[adj_y][adj_x];
             grid[adj_y][adj_x] = '@';
             grid[orig_y][orig_x] = '.';

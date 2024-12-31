@@ -138,6 +138,16 @@ fn day15_part1(data_path: &str) -> PyResult<u32> {
     Ok(days::day15::part1(Path::new(data_path)))
 }
 
+#[pyfunction]
+fn day25_part1(data_path: &str) -> PyResult<u32> {
+    Ok(days::day25::part1(Path::new(data_path)))
+}
+
+#[pyfunction]
+fn day25_part2(data_path: &str) -> PyResult<u32> {
+    Ok(days::day25::part2(Path::new(data_path)))
+}
+
 #[pymodule]
 fn advent2024(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(day1_part1, m)?)?;
@@ -167,5 +177,7 @@ fn advent2024(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(day13_part1, m)?)?;
     m.add_function(wrap_pyfunction!(day13_part2, m)?)?;
     m.add_function(wrap_pyfunction!(day15_part1, m)?)?;
+    m.add_function(wrap_pyfunction!(day25_part1, m)?)?;
+    m.add_function(wrap_pyfunction!(day25_part2, m)?)?;
     Ok(())
 }
